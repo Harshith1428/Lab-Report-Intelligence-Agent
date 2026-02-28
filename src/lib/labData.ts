@@ -1,3 +1,5 @@
+import { type HealthMetrics, medicalRanges, getStatus } from "./healthConfig";
+
 // Types
 export type TestStatus = "normal" | "low" | "high";
 
@@ -204,3 +206,82 @@ export const demoReport: LabReport = {
     },
   ],
 };
+
+export function generateReportFromMetrics(metrics: HealthMetrics): LabReport {
+  const tests: TestResult[] = [];
+  const patterns: PatternInsight[] = [];
+
+  const metricConfigs: Record<string, { name: string, unit: string }> = {
+    hemoglobin: { name: "Hemoglobin (Hb)", unit: "g/dL" },
+    wbc: { name: "White Blood Cells (WBC)", unit: "cells/µL" },
+    rbc: { name: "Red Blood Cells (RBC)", unit: "millions/µL" },
+    plateletCount: { name: "Platelet Count", unit: "/µL" },
+    fastingGlucose: { name: "Fasting Blood Glucose", unit: "mg/dL" },
+    postMealGlucose: { name: "Post-Meal Glucose", unit: "mg/dL" },
+    totalCholesterol: { name: "Total Cholesterol", unit: "mg/dL" },
+    hdl: { name: "HDL Cholesterol", unit: "mg/dL" },
+    ldl: { name: "LDL Cholesterol", unit: "mg/dL" },
+    systolicBP: { name: "Systolic Blood Pressure", unit: "mmHg" },
+    diastolicBP: { name: "Diastolic Blood Pressure", unit: "mmHg" },
+    heartRate: { name: "Heart Rate", unit: "bpm" },
+  };
+
+  Object.entries(metrics).forEach(([key, value]) => {
+    if (key === 'updatedAt' || typeof value !== 'number') return;
+
+    const config = metricConfigs[key];
+    if (!config) return;
+
+    const healthStatus = getStatus(key, value);
+    const range = medicalRanges[key];
+
+    let status: TestStatus = "normal";
+    if (healthStatus === "warning" || healthStatus === "critical") {
+      // Simplification: warning/critical maps to low/high based on range
+      status = value < range.normal[0] ? "low" : "high";
+    }
+
+    tests.push({
+      id: key,
+      name: config.name,
+      value,
+      unit: config.unit,
+      normalRange: { min: range.normal[0], max: range.normal[1] },
+      status,
+      explanation: `Your ${config.name.toLowerCase()} is ${status === 'normal' ? 'within' : status === 'high' ? 'above' : 'below'} the normal range (${range.normal[0]}–${range.normal[1]} ${config.unit}).`,
+    });
+  });
+
+  // Simple dynamic patterns
+  const outOfRange = tests.filter(t => t.status !== 'normal');
+  if (outOfRange.length > 0) {
+    patterns.push({
+      id: "p1",
+      title: "Markers for Review",
+      description: `Your ${outOfRange.map(t => t.name).join(', ')} levels are outside the ideal range.`,
+      icon: "🔬",
+    });
+  } else {
+    patterns.push({
+      id: "p1",
+      title: "Balanced Profile",
+      description: "All your primary lab markers are within healthy ranges.",
+      icon: "✅",
+    });
+  }
+
+  const healthScore = 100 - (outOfRange.length * 5);
+  const riskLevel = outOfRange.length === 0 ? "Low" : outOfRange.length < 3 ? "Moderate" : "High";
+
+  return {
+    patientName: "Valued Patient",
+    date: metrics.updatedAt || new Date().toISOString(),
+    overallInsight: outOfRange.length === 0
+      ? "Your lab report shows excellent results. All metrics are within the recommended ranges."
+      : `Your report highlights ${outOfRange.length} area(s) that might need attention. Most markers are stable, but review the flagged results with your doctor.`,
+    healthScore: Math.min(100, Math.max(0, healthScore)),
+    riskLevel,
+    tests,
+    patterns,
+  };
+}

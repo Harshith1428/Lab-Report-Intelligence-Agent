@@ -1,5 +1,6 @@
+import { useLocation } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
-import { demoReport } from "@/lib/labData";
+import { demoReport, generateReportFromMetrics } from "@/lib/labData";
 import { SummaryCard } from "@/components/lab/SummaryCard";
 import { TestCard } from "@/components/lab/TestCard";
 import { PatternInsights } from "@/components/lab/PatternInsights";
@@ -10,7 +11,9 @@ import { useLang } from "@/lib/LanguageContext";
 import { t } from "@/lib/translations";
 
 const ResultsDashboard = () => {
-    const report = demoReport;
+    const location = useLocation();
+    const metrics = location.state?.metrics;
+    const report = metrics ? generateReportFromMetrics(metrics) : demoReport;
     const { lang } = useLang();
 
     return (

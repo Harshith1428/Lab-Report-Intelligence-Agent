@@ -89,7 +89,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(null);
             }
             setLoading(false);
+        }).catch((err) => {
+            console.error("Session check error:", err);
+            setLoading(false);
         });
+
+        // Safety timeout to prevent infinite loading
+        const timeout = setTimeout(() => {
+            setLoading(current => {
+                if (current) {
+                    console.warn("Auth loading timed out after 5s");
+                    return false;
+                }
+                return false;
+            });
+        }, 5000);
 
         // 2. Subscribe to future auth state changes
         const { data: listener } = supabase.auth.onAuthStateChange(async (_, s) => {
@@ -102,7 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         });
 
-        return () => listener.subscription.unsubscribe();
+        return () => {
+            listener.subscription.unsubscribe();
+            clearTimeout(timeout);
+        };
     }, []);
 
     // ── Auth actions ─────────────────────────────────────────────

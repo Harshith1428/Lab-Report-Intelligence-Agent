@@ -4,6 +4,7 @@ import { Upload, Brain, BarChart3, Heart, ArrowRight, Loader2 } from "lucide-rea
 import { FeatureCard } from "@/components/lab/FeatureCard";
 import { Header } from "@/components/lab/Header";
 import { Footer } from "@/components/lab/Footer";
+import { analyzeLabReportWithGemini } from "@/lib/gemini";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/lib/LanguageContext";
 import { t } from "@/lib/translations";
@@ -23,12 +24,47 @@ const LandingPage = () => {
                 toast({ title: "Please upload a PDF file", variant: "destructive" });
                 return;
             }
+
+            if (file.size > 20 * 1024 * 1024) {
+                toast({ title: "File too large (max 20MB)", variant: "destructive" });
+                return;
+            }
+
             setIsUploading(true);
-            setTimeout(() => {
+            try {
+                const reader = new FileReader();
+                const base64 = await new Promise<string>((resolve, reject) => {
+                    reader.onload = () => {
+                        const result = reader.result as string;
+                        resolve(result.split(",")[1]);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                const metrics = await analyzeLabReportWithGemini(base64, file.name);
+
+                if (metrics && Object.keys(metrics).length > 0) {
+                    toast({ title: "Report analyzed successfully!" });
+                    navigate("/results", { state: { metrics } });
+                } else {
+                    toast({
+                        title: "Analysis incomplete",
+                        description: "No medical content or health metrics were found in this file. Please ensure you've uploaded a valid lab report.",
+                        variant: "destructive"
+                    });
+                }
+            } catch (err: any) {
+                console.error("Upload error:", err);
+                toast({
+                    title: "Analysis failed",
+                    description: err.message || "Failed to analyze report",
+                    variant: "destructive",
+                });
+            } finally {
                 setIsUploading(false);
-                toast({ title: "Report analyzed successfully!" });
-                navigate("/results");
-            }, 2000);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            }
         },
         [navigate, toast]
     );
