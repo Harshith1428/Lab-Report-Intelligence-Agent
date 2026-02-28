@@ -45,7 +45,7 @@ const ResultsDashboard = () => {
                 </div>
 
                 <PatternInsights patterns={report.patterns} lang={lang} />
-                <AskReport lang={lang} />
+                <AskReport lang={lang} metrics={metrics} />
 
                 {/* Disclaimer */}
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 flex gap-3">

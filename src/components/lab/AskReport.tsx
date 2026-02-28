@@ -1,25 +1,32 @@
 import { useState } from "react";
 import { Send, MessageCircle } from "lucide-react";
 import { type Language, t } from "@/lib/translations";
+import { askGeminiAboutReport } from "@/lib/gemini";
+import type { HealthMetrics } from "@/lib/healthConfig";
 
 interface AskReportProps {
     lang: Language;
+    metrics: HealthMetrics | null;
 }
 
-export function AskReport({ lang }: AskReportProps) {
+export function AskReport({ lang, metrics }: AskReportProps) {
     const [question, setQuestion] = useState("");
     const [response, setResponse] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleAsk = () => {
+    const handleAsk = async () => {
         if (!question.trim()) return;
         setIsLoading(true);
-        setTimeout(() => {
-            setResponse(
-                "Based on your lab results, your hemoglobin level of 11.8 g/dL is slightly below the normal range (12.0–17.5 g/dL). This mild decrease doesn't indicate a serious condition but could suggest early-stage iron deficiency. Consider incorporating more iron-rich foods into your diet and discussing an iron supplement with your healthcare provider."
-            );
+        setResponse(null); // clear previous
+
+        try {
+            const answer = await askGeminiAboutReport(question, metrics);
+            setResponse(answer);
+        } catch (error: any) {
+            setResponse(`Error analyzing report: ${error.message || 'Unknown error'}`);
+        } finally {
             setIsLoading(false);
-        }, 1500);
+        }
     };
 
     return (

@@ -5,6 +5,7 @@ import { HealthCard } from "@/components/HealthCard";
 import { StickyBottomBar } from "@/components/StickyBottomBar";
 import { type Language, t, getStoredLanguage, setStoredLanguage } from "@/lib/i18n";
 import type { HealthMetrics } from "@/lib/healthConfig";
+import { analyzeLabReportWithGemini } from "@/lib/gemini";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -44,13 +45,10 @@ const Index = () => {
         reader.readAsDataURL(file);
       });
 
-      const { data, error } = await supabase.functions.invoke("parse-lab-report", {
-        body: { pdfBase64: base64, fileName: file.name },
-      });
+      const metricsResult = await analyzeLabReportWithGemini(base64, file.name);
 
-      if (error) throw error;
-      if (data?.metrics) {
-        setMetrics({ ...data.metrics, updatedAt: new Date().toISOString() });
+      if (metricsResult) {
+        setMetrics({ ...metricsResult, updatedAt: new Date().toISOString() });
         toast({ title: "Report analyzed successfully!" });
       }
     } catch (err: any) {
